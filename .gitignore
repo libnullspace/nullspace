@@ -1,0 +1,13 @@
+# Zig build artifacts
+.zig-cache/
+.zig-global-cache/
+zig-out/
+
+# Local workspace artifacts
+internal/
+.tmp/
+
+# OS/editor noise
+.DS_Store
+*.swp
+*~
