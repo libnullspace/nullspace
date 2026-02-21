@@ -17,6 +17,7 @@ Refines the API around explicit execution intent and matrix multiplication seman
 - `Failure` now reports requested execution intent through `fail.exec` instead of backend enum metadata.
 - `matmul_into` is now overwrite-only (`out = a*b`), while accumulation lives in `gemm_into`.
 - SIMD dispatch is now consistent across compute ops; requesting `.simd` returns `error.BackendUnavailable` when unavailable.
+- Build flags now enforce real boundaries: BLAS is internal provider wiring, and CUDA is an optional `nullspace_cuda` module.
 
 ## [0.0.1] - 2026-02-20
 

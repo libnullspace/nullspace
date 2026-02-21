@@ -4,6 +4,8 @@ const view = @import("view.zig");
 const owning = @import("owning.zig");
 const cpu_scalar = @import("backend/cpu_scalar.zig");
 const cpu_simd = @import("backend/cpu_simd.zig");
+const cfg = @import("build_options");
+const blas_provider = if (cfg.enable_blas) @import("provider/blas.zig") else struct {};
 
 const CpuImpl = enum { scalar, simd };
 
@@ -13,6 +15,52 @@ fn resolve(exec: core.Exec) core.LaError!CpuImpl {
         .auto => if (cpu_simd.is_available) .simd else .scalar,
         .simd => if (cpu_simd.is_available) .simd else error.BackendUnavailable,
     };
+}
+
+fn maybeBlasMatmul(
+    comptime T: type,
+    exec: core.Exec,
+    out: view.MatMutView(T),
+    a: view.MatView(T),
+    b: view.MatView(T),
+) core.LaError!bool {
+    // Keep explicit scalar/simd requests deterministic; BLAS is only an auto-mode provider.
+    if (exec.simd != .auto) return false;
+
+    if (comptime cfg.enable_blas) {
+        if (!blas_provider.is_available) return false;
+        if (!blas_provider.canUse(T, out, a, b)) return false;
+
+        blas_provider.matmulInto(T, out, a, b) catch |err| switch (err) {
+            error.BackendUnavailable => return false,
+            else => return err,
+        };
+        return true;
+    }
+    return false;
+}
+
+fn maybeBlasGemm(
+    comptime T: type,
+    exec: core.Exec,
+    out: view.MatMutView(T),
+    a: view.MatView(T),
+    b: view.MatView(T),
+    opts: core.GemmOpts(T),
+) core.LaError!bool {
+    if (exec.simd != .auto) return false;
+
+    if (comptime cfg.enable_blas) {
+        if (!blas_provider.is_available) return false;
+        if (!blas_provider.canUse(T, out, a, b)) return false;
+
+        blas_provider.gemmInto(T, out, a, b, opts) catch |err| switch (err) {
+            error.BackendUnavailable => return false,
+            else => return err,
+        };
+        return true;
+    }
+    return false;
 }
 
 pub fn addIntoEx(comptime T: type, exec: core.Exec, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
@@ -115,6 +163,8 @@ pub fn dot(comptime T: type, a: view.VecView(T), b: view.VecView(T)) core.LaErro
 }
 
 pub fn matmulIntoEx(comptime T: type, exec: core.Exec, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
+    if (try maybeBlasMatmul(T, exec, out, a, b)) return;
+
     return switch (try resolve(exec)) {
         .scalar => cpu_scalar.matmulInto(T, out, a, b),
         .simd => cpu_simd.matmulInto(T, out, a, b),
@@ -133,6 +183,8 @@ pub fn gemmIntoEx(
     b: view.MatView(T),
     opts: core.GemmOpts(T),
 ) core.LaError!void {
+    if (try maybeBlasGemm(T, exec, out, a, b, opts)) return;
+
     return switch (try resolve(exec)) {
         .scalar => cpu_scalar.gemmInto(T, out, a, b, opts),
         .simd => cpu_simd.gemmInto(T, out, a, b, opts),

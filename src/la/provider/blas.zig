@@ -1,8 +1,21 @@
 const core = @import("../core.zig");
 const view = @import("../view.zig");
-const cfg = @import("build_options");
 
-pub const is_enabled = cfg.enable_cuda;
+// Placeholder provider: compile/link boundary exists, but BLAS kernels are not wired yet.
+pub const is_available = false;
+
+pub fn canUse(
+    comptime T: type,
+    out: view.MatMutView(T),
+    a: view.MatView(T),
+    b: view.MatView(T),
+) bool {
+    return is_available and
+        core.isFloatType(T) and
+        out.isContiguousRowMajor() and
+        a.isContiguousRowMajor() and
+        b.isContiguousRowMajor();
+}
 
 pub fn matmulInto(
     comptime T: type,

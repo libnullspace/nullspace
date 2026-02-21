@@ -17,8 +17,11 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
     const enable_simd = b.option(bool, "enable_simd", "Enable SIMD backend dispatch") orelse true;
-    const enable_blas = b.option(bool, "enable_blas", "Enable BLAS backend stubs") orelse false;
-    const enable_cuda = b.option(bool, "enable_cuda", "Enable CUDA backend stubs") orelse false;
+    const enable_blas = b.option(bool, "enable_blas", "Enable internal BLAS provider integration") orelse false;
+    const enable_cuda = b.option(bool, "enable_cuda", "Expose optional nullspace_cuda module") orelse false;
+    const blas_lib_name = b.option([]const u8, "blas_lib_name", "System BLAS library name") orelse "blas";
+    const cuda_runtime_lib_name = b.option([]const u8, "cuda_runtime_lib_name", "CUDA runtime system library name") orelse "cudart";
+    const cublas_lib_name = b.option([]const u8, "cublas_lib_name", "cuBLAS system library name") orelse "cublas";
 
     const build_options = b.addOptions();
     build_options.addOption(bool, "enable_simd", enable_simd);
@@ -49,6 +52,31 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
     mod.addOptions("build_options", build_options);
+    if (enable_blas) {
+        mod.linkSystemLibrary(blas_lib_name, .{});
+    }
+
+    var run_cuda_mod_tests_step: ?*std.Build.Step = null;
+
+    if (enable_cuda) {
+        const cuda_mod = b.addModule("nullspace_cuda", .{
+            .root_source_file = b.path("src/cuda/root.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "nullspace", .module = mod },
+            },
+        });
+        cuda_mod.addOptions("build_options", build_options);
+        cuda_mod.linkSystemLibrary(cuda_runtime_lib_name, .{});
+        cuda_mod.linkSystemLibrary(cublas_lib_name, .{});
+
+        const cuda_mod_tests = b.addTest(.{
+            .root_module = cuda_mod,
+        });
+        const run_cuda_mod_tests = b.addRunArtifact(cuda_mod_tests);
+        run_cuda_mod_tests_step = &run_cuda_mod_tests.step;
+    }
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
@@ -151,6 +179,9 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+    if (run_cuda_mod_tests_step) |step| {
+        test_step.dependOn(step);
+    }
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //

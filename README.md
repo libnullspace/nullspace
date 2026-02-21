@@ -74,7 +74,8 @@ pub fn main() !void {
 
 - Implemented: `cpu_scalar`
 - Capability-gated (currently return `error.BackendUnavailable`): `cpu_simd`
-- BLAS/CUDA are not part of the current public CPU-first surface
+- BLAS is wired as an internal provider strategy for `matmul`/`gemm` when `-Denable_blas=true` (no public backend enum)
+- CUDA is not part of the default `nullspace` CPU API; when `-Denable_cuda=true` an optional `nullspace_cuda` module is exposed with explicit device-domain APIs
 
 ## Repo Notes
 

@@ -80,7 +80,8 @@ Dispatch policy:
 ## 8. Extension Strategy (Deferred by Design)
 
 - BLAS and CUDA are not part of the default public execution vocabulary.
-- CUDA is treated as a separate memory domain with explicit transfer APIs (future module direction), not as a runtime backend enum on host views.
+- BLAS integration is an internal provider strategy selected in dispatch when enabled at build time (`-Denable_blas=true`), not a per-call public backend enum.
+- CUDA is treated as a separate memory domain with explicit transfer APIs and is exposed via optional module `nullspace_cuda` when enabled (`-Denable_cuda=true`), not as a runtime backend enum on host views.
 - Any future accelerator integration must preserve the no-hidden-allocation contract for `_into`/`_inplace` APIs.
 
 ## 9. Design Guardrails for Future Changes
