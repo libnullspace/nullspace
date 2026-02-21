@@ -12,15 +12,20 @@ pub const LaError = error{
 
 pub const SimdMode = enum { auto, scalar, simd };
 pub const Threading = enum { single, multi };
-pub const Backend = enum { auto, cpu_scalar, cpu_simd, blas, cuda };
 
-pub const MatmulOpts = struct {
-    backend: Backend = .auto,
-    trans_a: bool = false,
-    trans_b: bool = false,
-    alpha: f64 = 1.0,
-    beta: f64 = 0.0,
+pub const Exec = struct {
+    simd: SimdMode = .auto,
+    threads: Threading = .single,
+    device: enum { cpu } = .cpu,
 };
+
+pub fn GemmOpts(comptime T: type) type {
+    assertNumericType(T);
+    return struct {
+        alpha: T = @as(T, 1),
+        beta: T = @as(T, 0),
+    };
+}
 
 pub const OpKind = enum {
     mat_alloc,
@@ -43,14 +48,14 @@ pub const OpKind = enum {
 
 pub const Failure = struct {
     op: OpKind,
-    backend: Backend,
+    exec: Exec,
     err: LaError,
 };
 
-pub fn makeFailure(op: OpKind, backend: Backend, err: LaError) Failure {
+pub fn makeFailure(op: OpKind, exec: Exec, err: LaError) Failure {
     return .{
         .op = op,
-        .backend = backend,
+        .exec = exec,
         .err = err,
     };
 }
@@ -62,11 +67,11 @@ pub fn Outcome(comptime T: type) type {
     };
 }
 
-pub fn intoOutcome(comptime T: type, op: OpKind, backend: Backend, result: LaError!T) Outcome(T) {
+pub fn intoOutcome(comptime T: type, op: OpKind, exec: Exec, result: LaError!T) Outcome(T) {
     return if (result) |ok| .{ .ok = ok } else |err| .{
         .fail = .{
             .op = op,
-            .backend = backend,
+            .exec = exec,
             .err = err,
         },
     };
@@ -79,8 +84,8 @@ pub fn unwrapOutcome(comptime T: type, result: Outcome(T)) LaError!T {
     };
 }
 
-pub fn failOutcome(comptime T: type, op: OpKind, backend: Backend, err: LaError) Outcome(T) {
-    return .{ .fail = makeFailure(op, backend, err) };
+pub fn failOutcome(comptime T: type, op: OpKind, exec: Exec, err: LaError) Outcome(T) {
+    return .{ .fail = makeFailure(op, exec, err) };
 }
 
 pub fn assertNumericType(comptime T: type) void {

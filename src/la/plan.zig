@@ -8,6 +8,7 @@ pub fn GemmPlan(comptime T: type) type {
         m: usize,
         n: usize,
         k: usize,
+        opts: core.GemmOpts(T) = .{},
 
         const Self = @This();
 

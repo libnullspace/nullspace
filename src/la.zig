@@ -2,6 +2,7 @@ const std = @import("std");
 
 pub const core = @import("la/core.zig");
 pub const view = @import("la/view.zig");
+pub const contract = @import("la/contract.zig");
 const owning = @import("la/owning.zig");
 pub const ops = @import("la/ops.zig");
 pub const cpu_api = @import("la/cpu.zig");
@@ -10,19 +11,17 @@ pub const plan = @import("la/plan.zig");
 pub const backend = struct {
     pub const cpu_scalar = @import("la/backend/cpu_scalar.zig");
     pub const cpu_simd = @import("la/backend/cpu_simd.zig");
-    pub const blas = @import("la/backend/blas.zig");
-    pub const cuda = @import("la/backend/cuda.zig");
 };
 
 pub const LaError = core.LaError;
 pub const SimdMode = core.SimdMode;
 pub const Threading = core.Threading;
-pub const Backend = core.Backend;
-pub const MatmulOpts = core.MatmulOpts;
+pub const Exec = core.Exec;
 pub const OpKind = core.OpKind;
 pub const Failure = core.Failure;
 pub const Outcome = core.Outcome;
 pub const ScalarOf = core.ScalarOf;
+pub const GemmOpts = core.GemmOpts;
 
 pub const VecView = view.VecView;
 pub const VecMutView = view.VecMutView;

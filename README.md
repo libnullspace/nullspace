@@ -4,15 +4,17 @@
 
 ## Status
 
-The project is functional and test-covered for core matrix/vector operations, with CPU scalar kernels implemented today and backend extension points in place.
+The project is functional and test-covered for core matrix/vector operations, with CPU scalar kernels implemented today and explicit execution/contract checks wired through the CPU API.
 
 ## Highlights
 
 - View-first compute model: `MatView`, `MatMutView`, `VecView`, `VecMutView`
+- View transpose helpers: `MatView.t()` and `MatMutView.t()`
 - Owning containers: `Matrix(T)`, `Vector(T)`
 - Ergonomic CPU facade: `cpu(alloc)` with allocating, `_into`, and `_inplace` APIs
+- Advanced accumulation API: `gemm_into(T, out, a, b, GemmOpts(T))`
 - Frame-scoped temporary allocations via arena (`Frame`)
-- Structured error context via `Outcome(T)` / `Failure`
+- Structured error context via `Outcome(T)` / `Failure` (including requested `Exec`)
 
 ## Requirements
 
@@ -59,15 +61,20 @@ pub fn main() !void {
 ## API Shape
 
 - Allocating: `add`, `sub`, `mul`, `div`, `relu`, `matmul`, `clone`, `mat`, `vec`
-- Non-allocating output: `add_into`, `sub_into`, `mul_into`, `div_into`, `matmul_into`
+- Non-allocating output: `add_into`, `sub_into`, `mul_into`, `div_into`, `matmul_into`, `gemm_into`
 - In-place: `relu_inplace`
 - Reductions: `sum`, `max`, `dot`, `norm2`
+- Execution knobs: `Cpu.simd`, `Cpu.threads`, `Exec`
 - Temporary scope: `frame()`, `frame.reset()`, `frame.deinit()`
+
+`matmul_into` is overwrite-only (`out = a*b`).
+`gemm_into` is the accumulation form (`out = alpha*(a*b) + beta*out`).
 
 ## Backends
 
 - Implemented: `cpu_scalar`
-- Stubbed (currently return `error.BackendUnavailable`): `cpu_simd`, `blas`, `cuda`
+- Capability-gated (currently return `error.BackendUnavailable`): `cpu_simd`
+- BLAS/CUDA are not part of the current public CPU-first surface
 
 ## Repo Notes
 

@@ -4,58 +4,149 @@ const view = @import("view.zig");
 const owning = @import("owning.zig");
 const cpu_scalar = @import("backend/cpu_scalar.zig");
 const cpu_simd = @import("backend/cpu_simd.zig");
-const blas = @import("backend/blas.zig");
-const cuda = @import("backend/cuda.zig");
+
+const CpuImpl = enum { scalar, simd };
+
+fn resolve(exec: core.Exec) core.LaError!CpuImpl {
+    return switch (exec.simd) {
+        .scalar => .scalar,
+        .auto => if (cpu_simd.is_available) .simd else .scalar,
+        .simd => if (cpu_simd.is_available) .simd else error.BackendUnavailable,
+    };
+}
+
+pub fn addIntoEx(comptime T: type, exec: core.Exec, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.addInto(T, out, a, b),
+        .simd => cpu_simd.addInto(T, out, a, b),
+    };
+}
 
 pub fn addInto(comptime T: type, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
-    return cpu_scalar.addInto(T, out, a, b);
+    return addIntoEx(T, .{}, out, a, b);
+}
+
+pub fn subIntoEx(comptime T: type, exec: core.Exec, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.subInto(T, out, a, b),
+        .simd => cpu_simd.subInto(T, out, a, b),
+    };
 }
 
 pub fn subInto(comptime T: type, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
-    return cpu_scalar.subInto(T, out, a, b);
+    return subIntoEx(T, .{}, out, a, b);
+}
+
+pub fn mulIntoEx(comptime T: type, exec: core.Exec, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.mulInto(T, out, a, b),
+        .simd => cpu_simd.mulInto(T, out, a, b),
+    };
 }
 
 pub fn mulInto(comptime T: type, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
-    return cpu_scalar.mulInto(T, out, a, b);
+    return mulIntoEx(T, .{}, out, a, b);
+}
+
+pub fn divIntoEx(comptime T: type, exec: core.Exec, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.divInto(T, out, a, b),
+        .simd => cpu_simd.divInto(T, out, a, b),
+    };
 }
 
 pub fn divInto(comptime T: type, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
-    return cpu_scalar.divInto(T, out, a, b);
+    return divIntoEx(T, .{}, out, a, b);
+}
+
+pub fn reluInplaceEx(comptime T: type, exec: core.Exec, x: view.MatMutView(T)) core.LaError!void {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.reluInplace(T, x),
+        .simd => cpu_simd.reluInplace(T, x),
+    };
 }
 
 pub fn reluInplace(comptime T: type, x: view.MatMutView(T)) core.LaError!void {
-    return cpu_scalar.reluInplace(T, x);
+    return reluInplaceEx(T, .{}, x);
+}
+
+pub fn sumEx(comptime T: type, exec: core.Exec, x: view.MatView(T)) core.LaError!T {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.sumMat(T, x),
+        .simd => cpu_simd.sumMat(T, x),
+    };
 }
 
 pub fn sum(comptime T: type, x: view.MatView(T)) core.LaError!T {
-    return cpu_scalar.sumMat(T, x);
+    return sumEx(T, .{}, x);
+}
+
+pub fn maxEx(comptime T: type, exec: core.Exec, x: view.MatView(T)) core.LaError!T {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.maxMat(T, x),
+        .simd => cpu_simd.maxMat(T, x),
+    };
 }
 
 pub fn max(comptime T: type, x: view.MatView(T)) core.LaError!T {
-    return cpu_scalar.maxMat(T, x);
+    return maxEx(T, .{}, x);
+}
+
+pub fn norm2Ex(comptime T: type, exec: core.Exec, x: view.MatView(T)) core.LaError!T {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.norm2Mat(T, x),
+        .simd => cpu_simd.norm2Mat(T, x),
+    };
 }
 
 pub fn norm2(comptime T: type, x: view.MatView(T)) core.LaError!T {
-    return cpu_scalar.norm2Mat(T, x);
+    return norm2Ex(T, .{}, x);
+}
+
+pub fn dotEx(comptime T: type, exec: core.Exec, a: view.VecView(T), b: view.VecView(T)) core.LaError!T {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.dot(T, a, b),
+        .simd => cpu_simd.dot(T, a, b),
+    };
 }
 
 pub fn dot(comptime T: type, a: view.VecView(T), b: view.VecView(T)) core.LaError!T {
-    return cpu_scalar.dot(T, a, b);
+    return dotEx(T, .{}, a, b);
 }
 
-pub fn matmulInto(
+pub fn matmulIntoEx(comptime T: type, exec: core.Exec, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.matmulInto(T, out, a, b),
+        .simd => cpu_simd.matmulInto(T, out, a, b),
+    };
+}
+
+pub fn matmulInto(comptime T: type, out: view.MatMutView(T), a: view.MatView(T), b: view.MatView(T)) core.LaError!void {
+    return matmulIntoEx(T, .{}, out, a, b);
+}
+
+pub fn gemmIntoEx(
+    comptime T: type,
+    exec: core.Exec,
+    out: view.MatMutView(T),
+    a: view.MatView(T),
+    b: view.MatView(T),
+    opts: core.GemmOpts(T),
+) core.LaError!void {
+    return switch (try resolve(exec)) {
+        .scalar => cpu_scalar.gemmInto(T, out, a, b, opts),
+        .simd => cpu_simd.gemmInto(T, out, a, b, opts),
+    };
+}
+
+pub fn gemmInto(
     comptime T: type,
     out: view.MatMutView(T),
     a: view.MatView(T),
     b: view.MatView(T),
-    opts: core.MatmulOpts,
+    opts: core.GemmOpts(T),
 ) core.LaError!void {
-    return switch (opts.backend) {
-        .auto, .cpu_scalar => cpu_scalar.matmulInto(T, out, a, b, opts),
-        .cpu_simd => cpu_simd.matmulInto(T, out, a, b, opts),
-        .blas => blas.matmulInto(T, out, a, b, opts),
-        .cuda => cuda.matmulInto(T, out, a, b, opts),
-    };
+    return gemmIntoEx(T, .{}, out, a, b, opts);
 }
 
 pub fn cloneAlloc(comptime T: type, alloc: std.mem.Allocator, x: view.MatView(T)) core.LaError!owning.Matrix(T) {
@@ -72,55 +163,68 @@ pub fn cloneAlloc(comptime T: type, alloc: std.mem.Allocator, x: view.MatView(T)
     return out;
 }
 
-pub fn addAlloc(comptime T: type, alloc: std.mem.Allocator, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
+pub fn addAllocEx(comptime T: type, alloc: std.mem.Allocator, exec: core.Exec, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
     var out = try owning.Matrix(T).init(alloc, a.rows, a.cols);
     errdefer out.deinit(alloc);
-    try addInto(T, out.asMatMutView(), a, b);
+    try addIntoEx(T, exec, out.asMatMutView(), a, b);
+    return out;
+}
+
+pub fn addAlloc(comptime T: type, alloc: std.mem.Allocator, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
+    return addAllocEx(T, alloc, .{}, a, b);
+}
+
+pub fn subAllocEx(comptime T: type, alloc: std.mem.Allocator, exec: core.Exec, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
+    var out = try owning.Matrix(T).init(alloc, a.rows, a.cols);
+    errdefer out.deinit(alloc);
+    try subIntoEx(T, exec, out.asMatMutView(), a, b);
     return out;
 }
 
 pub fn subAlloc(comptime T: type, alloc: std.mem.Allocator, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
+    return subAllocEx(T, alloc, .{}, a, b);
+}
+
+pub fn mulAllocEx(comptime T: type, alloc: std.mem.Allocator, exec: core.Exec, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
     var out = try owning.Matrix(T).init(alloc, a.rows, a.cols);
     errdefer out.deinit(alloc);
-    try subInto(T, out.asMatMutView(), a, b);
+    try mulIntoEx(T, exec, out.asMatMutView(), a, b);
     return out;
 }
 
 pub fn mulAlloc(comptime T: type, alloc: std.mem.Allocator, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
+    return mulAllocEx(T, alloc, .{}, a, b);
+}
+
+pub fn divAllocEx(comptime T: type, alloc: std.mem.Allocator, exec: core.Exec, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
     var out = try owning.Matrix(T).init(alloc, a.rows, a.cols);
     errdefer out.deinit(alloc);
-    try mulInto(T, out.asMatMutView(), a, b);
+    try divIntoEx(T, exec, out.asMatMutView(), a, b);
     return out;
 }
 
 pub fn divAlloc(comptime T: type, alloc: std.mem.Allocator, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
-    var out = try owning.Matrix(T).init(alloc, a.rows, a.cols);
+    return divAllocEx(T, alloc, .{}, a, b);
+}
+
+pub fn reluAllocEx(comptime T: type, alloc: std.mem.Allocator, exec: core.Exec, x: view.MatView(T)) core.LaError!owning.Matrix(T) {
+    var out = try cloneAlloc(T, alloc, x);
     errdefer out.deinit(alloc);
-    try divInto(T, out.asMatMutView(), a, b);
+    try reluInplaceEx(T, exec, out.asMatMutView());
     return out;
 }
 
 pub fn reluAlloc(comptime T: type, alloc: std.mem.Allocator, x: view.MatView(T)) core.LaError!owning.Matrix(T) {
-    var out = try cloneAlloc(T, alloc, x);
+    return reluAllocEx(T, alloc, .{}, x);
+}
+
+pub fn matmulAllocEx(comptime T: type, alloc: std.mem.Allocator, exec: core.Exec, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
+    var out = try owning.Matrix(T).init(alloc, a.rows, b.cols);
     errdefer out.deinit(alloc);
-    try reluInplace(T, out.asMatMutView());
+    try matmulIntoEx(T, exec, out.asMatMutView(), a, b);
     return out;
 }
 
-pub fn matmulAlloc(
-    comptime T: type,
-    alloc: std.mem.Allocator,
-    a: view.MatView(T),
-    b: view.MatView(T),
-    opts: core.MatmulOpts,
-) core.LaError!owning.Matrix(T) {
-    const a_rows = if (opts.trans_a) a.cols else a.rows;
-    const b_cols = if (opts.trans_b) b.rows else b.cols;
-
-    var out = try owning.Matrix(T).init(alloc, a_rows, b_cols);
-    errdefer out.deinit(alloc);
-
-    out.fill(@as(T, 0));
-    try matmulInto(T, out.asMatMutView(), a, b, opts);
-    return out;
+pub fn matmulAlloc(comptime T: type, alloc: std.mem.Allocator, a: view.MatView(T), b: view.MatView(T)) core.LaError!owning.Matrix(T) {
+    return matmulAllocEx(T, alloc, .{}, a, b);
 }

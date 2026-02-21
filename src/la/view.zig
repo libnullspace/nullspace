@@ -93,6 +93,16 @@ pub fn MatView(comptime T: type) type {
             return self.ptr[row * self.row_stride + col * self.col_stride];
         }
 
+        pub fn t(self: Self) Self {
+            return .{
+                .ptr = self.ptr,
+                .rows = self.cols,
+                .cols = self.rows,
+                .row_stride = self.col_stride,
+                .col_stride = self.row_stride,
+            };
+        }
+
         pub fn isContiguousRowMajor(self: Self) bool {
             return self.col_stride == 1 and self.row_stride == self.cols;
         }
@@ -134,6 +144,16 @@ pub fn MatMutView(comptime T: type) type {
             std.debug.assert(row < self.rows);
             std.debug.assert(col < self.cols);
             self.ptr[row * self.row_stride + col * self.col_stride] = value;
+        }
+
+        pub fn t(self: Self) Self {
+            return .{
+                .ptr = self.ptr,
+                .rows = self.cols,
+                .cols = self.rows,
+                .row_stride = self.col_stride,
+                .col_stride = self.row_stride,
+            };
         }
 
         pub fn asConst(self: Self) MatView(T) {
